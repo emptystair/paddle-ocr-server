@@ -631,6 +631,14 @@ class PaddleOCRClient:
         self.stats.fallback_recovered += len(non_empty)
 
         if dropped:
+            dropped_lookup = {doc["id"]: doc for doc, _ in fallback_docs}
+            dropped_ids = set(r.get("document_id") for r in recovered) - set(r.get("document_id") for r in non_empty)
+            for did in dropped_ids:
+                doc = dropped_lookup.get(did, {})
+                logger.warning(
+                    f"Fallback: dropping zero-text document_id={did} "
+                    f"source_document_id={doc.get('source_document_id', '?')}"
+                )
             logger.warning(
                 f"Fallback: dropped {dropped} still-empty results to avoid "
                 f"overwriting existing data"

@@ -160,20 +160,23 @@ def load_character_list(keys_path: str) -> List[str]:
 
 # -- Detection pre/post-processing --
 
-def det_preprocess(img: np.ndarray) -> Tuple[np.ndarray, float, float]:
+def det_preprocess(img: np.ndarray, target_shape: Tuple[int, int] = None) -> Tuple[np.ndarray, float, float]:
     """Resize, normalize, transpose for detection model."""
     h, w = img.shape[:2]
 
-    # Fixed limit_side_len to match paddle_v3
-    limit = int(os.getenv("DET_LIMIT_SIDE_LEN", "1920"))
-    max_side = max(h, w)
+    if target_shape is not None:
+        resize_h, resize_w = target_shape
+    else:
+        # Fixed limit_side_len to match paddle_v3
+        limit = int(os.getenv("DET_LIMIT_SIDE_LEN", "1920"))
+        max_side = max(h, w)
 
-    ratio = 1.0
-    if max_side > limit:
-        ratio = limit / max_side
+        ratio = 1.0
+        if max_side > limit:
+            ratio = limit / max_side
 
-    resize_h = max(int(round(h * ratio / 32) * 32), 32)
-    resize_w = max(int(round(w * ratio / 32) * 32), 32)
+        resize_h = max(int(round(h * ratio / 32) * 32), 32)
+        resize_w = max(int(round(w * ratio / 32) * 32), 32)
 
     resized = cv2.resize(img, (resize_w, resize_h))
     # ImageNet normalization (PaddleOCR det standard)
@@ -428,6 +431,16 @@ WARMUP_DET_SHAPES = [
 CACHED_DET_SHAPES = set(WARMUP_DET_SHAPES)
 
 
+def find_nearest_cached_shape(shape: Tuple[int, int]) -> Tuple[int, int]:
+    """Find the closest cached det shape by L2 distance."""
+    best, best_dist = None, float("inf")
+    for cached in CACHED_DET_SHAPES:
+        dist = (shape[0] - cached[0]) ** 2 + (shape[1] - cached[1]) ** 2
+        if dist < best_dist:
+            best, best_dist = cached, dist
+    return best
+
+
 def det_input_shape(img_h: int, img_w: int) -> Tuple[int, int]:
     """Compute the det model input shape for a given image, matching det_preprocess logic."""
     limit = int(os.getenv("DET_LIMIT_SIDE_LEN", "1920"))
@@ -507,13 +520,13 @@ class OCREngine:
         self.char_list = load_character_list(config["REC_KEYS_PATH"])
         logger.info(f"Loaded {len(self.char_list)} characters for CTC decoding")
 
-    def __call__(self, img: np.ndarray):
+    def __call__(self, img: np.ndarray, det_target_shape: Tuple[int, int] = None):
         """Run full OCR pipeline. Returns list of [bbox, text, confidence]."""
         t0 = time.time()
         src_h, src_w = img.shape[:2]
 
         # 1. Detection
-        det_input, ratio_h, ratio_w = det_preprocess(img)
+        det_input, ratio_h, ratio_w = det_preprocess(img, target_shape=det_target_shape)
         det_output = self.det_session.run(None, {self.det_input_name: det_input})[0]
         boxes = det_postprocess(det_output, src_h, src_w, self.config)
 
@@ -749,20 +762,22 @@ class PageOCRWorker(mp.Process):
             if shape is None:
                 return {"job_id": task.job_id, "page_num": task.page_num,
                         "pdf_path": task.pdf_path, "status": "error", "error": "Render failed"}
-            # Check if det input shape is cached to avoid TRT recompilation stalls
+            # Snap uncached det shapes to nearest cached shape
             det_shape = det_input_shape(shape[0], shape[1])
+            det_target_shape = None
+            det_shape_snapped = False
             if det_shape not in CACHED_DET_SHAPES:
-                logger.warning(f"W{self.worker_id} pg{task.page_num}: skipping uncached det shape {det_shape} for {task.pdf_path}")
-                return {"job_id": task.job_id, "page_num": task.page_num,
-                        "pdf_path": task.pdf_path, "status": "error",
-                        "error": f"Uncached det shape {det_shape}"}
+                snapped = find_nearest_cached_shape(det_shape)
+                logger.info(f"W{self.worker_id} pg{task.page_num}: snapping det shape {det_shape} -> {snapped} for {task.pdf_path}")
+                det_target_shape = snapped
+                det_shape_snapped = True
 
             shm = shared_memory.SharedMemory(name=task.buffer_name)
             img = np.ndarray(shape, dtype=np.uint8, buffer=shm.buf).copy()
             shm.close()
 
             t_ocr_start = time.time()
-            ocr_result, _ = engine(img)
+            ocr_result, _ = engine(img, det_target_shape=det_target_shape)
             text_lines = []
             for line in ocr_result:
                 bbox, text, conf = line
@@ -772,8 +787,11 @@ class PageOCRWorker(mp.Process):
 
             t_ocr = time.time() - t_ocr_start
             logger.debug(f"W{self.worker_id} pg{task.page_num}: render={t_render:.3f}s ocr={t_ocr:.3f}s lines={len(text_lines)}")
-            return {"job_id": task.job_id, "page_num": task.page_num, "pdf_path": task.pdf_path,
-                    "status": "success", "text_lines": text_lines, "process_time": time.time() - t0}
+            result = {"job_id": task.job_id, "page_num": task.page_num, "pdf_path": task.pdf_path,
+                      "status": "success", "text_lines": text_lines, "process_time": time.time() - t0}
+            if det_shape_snapped:
+                result["det_shape_snapped"] = True
+            return result
         except Exception as e:
             logger.error(f"Process page {task.page_num} failed: {e}")
             return {"job_id": task.job_id, "page_num": task.page_num,
