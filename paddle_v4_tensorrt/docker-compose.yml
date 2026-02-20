@@ -1,0 +1,34 @@
+services:
+  ocr-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paddle_v4_trt_server
+    ports:
+      - "8003:8000"
+    volumes:
+      - /mnt/models/wake-county-pdfs:/data:ro
+      - trt_cache:/app/trt_cache
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NUM_WORKERS=8
+      - DPI=100
+      - BUFFER_POOL_SIZE=50
+      - INSTANCE_ID=v5_tensorrt
+      - REC_BATCH_SIZE=1
+      - DET_MODEL_PATH=/app/models/PP-OCRv5/ch_PP-OCRv5_mobile_det.onnx
+      - REC_MODEL_PATH=/app/models/PP-OCRv5/ch_PP-OCRv5_mobile_rec.onnx
+      - REC_KEYS_PATH=/app/models/PP-OCRv5/ppocr_keys_v5.txt
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    shm_size: 4gb
+    restart: unless-stopped
+
+volumes:
+  trt_cache:
+    name: paddle_v4_trt_cache
