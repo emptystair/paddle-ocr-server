@@ -375,6 +375,7 @@ class DocumentOperations:
         included_types: Optional[List[str]] = None,
         uploaded_after: Optional[str] = None,
         uploaded_before: Optional[str] = None,
+        reprocess_before: Optional[str] = None,
     ) -> int:
         """Get count of documents matching criteria.
 
@@ -383,7 +384,7 @@ class DocumentOperations:
         of rows. Falls back to exact count when filters are present.
         """
         has_filters = any([start_date, end_date, included_types,
-                          uploaded_after, uploaded_before])
+                          uploaded_after, uploaded_before, reprocess_before])
 
         # Fast path: approximate count from pg_class stats (~0.1s vs ~25s)
         if mode == "new" and not has_filters:
@@ -417,6 +418,8 @@ class DocumentOperations:
             f.add_raw("NOT EXISTS (SELECT 1 FROM ocr_results o WHERE o.document_id = d.id)")
         else:
             join_clause = "INNER JOIN ocr_results o ON o.document_id = d.id"
+            if reprocess_before:
+                f.add("o.updated_at < ${idx}::timestamp", reprocess_before)
 
         query = f"""
             SELECT COUNT(*) FROM documents d
@@ -438,6 +441,7 @@ class DocumentOperations:
         included_types: Optional[List[str]] = None,
         uploaded_after: Optional[str] = None,
         uploaded_before: Optional[str] = None,
+        reprocess_before: Optional[str] = None,
         cursor_recorded_at: Optional[Any] = None,
         cursor_id: Optional[Any] = None,
     ) -> Tuple[List[Dict], Optional[Any], Optional[Any]]:
@@ -503,6 +507,8 @@ class DocumentOperations:
         else:
             join_clause = "INNER JOIN ocr_results o ON o.document_id = d.id"
             extra_cols = ", o.id as ocr_result_id"
+            if reprocess_before:
+                f.add("o.updated_at < ${idx}::timestamp", reprocess_before)
 
         limit_idx = f.next_idx
         all_params = f.params + [chunk_size]

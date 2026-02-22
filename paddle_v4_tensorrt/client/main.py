@@ -119,6 +119,14 @@ Examples:
         help="Shorthand: only documents uploaded today",
     )
 
+    # Reprocess filtering
+    parser.add_argument(
+        "--reprocess-before",
+        type=str,
+        default=None,
+        help="Only reprocess docs with OCR updated before this date (YYYY-MM-DD). Reprocess mode only.",
+    )
+
     # Document type filtering
     parser.add_argument(
         "--document-type",
@@ -224,6 +232,10 @@ def build_config(args: argparse.Namespace) -> ClientConfig:
         config.uploaded_after = today_str
         config.uploaded_before = today_str
 
+    # Reprocess filtering
+    if args.reprocess_before:
+        config.reprocess_before = args.reprocess_before
+
     # Document type inclusion filter
     if args.document_type:
         config.included_doc_types = args.document_type
@@ -284,6 +296,8 @@ async def main():
         logger.info(f"Uploaded after: {config.uploaded_after}")
     if config.uploaded_before:
         logger.info(f"Uploaded before:{config.uploaded_before}")
+    if config.reprocess_before:
+        logger.info(f"Reprocess before:{config.reprocess_before}")
     if config.included_doc_types:
         logger.info(f"Doc types:      {', '.join(config.included_doc_types)}")
     logger.info("=" * 60)

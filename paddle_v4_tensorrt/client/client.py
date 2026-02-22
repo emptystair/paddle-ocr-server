@@ -198,6 +198,7 @@ class PaddleOCRClient:
                     included_types=self.config.included_doc_types,
                     uploaded_after=self.config.uploaded_after,
                     uploaded_before=self.config.uploaded_before,
+                    reprocess_before=self.config.reprocess_before,
                 )
                 approx = "~" if self.config.mode == "new" and not any([
                     self.config.start_date, self.config.end_date,
@@ -278,6 +279,7 @@ class PaddleOCRClient:
                     included_types=self.config.included_doc_types,
                     uploaded_after=self.config.uploaded_after,
                     uploaded_before=self.config.uploaded_before,
+                    reprocess_before=self.config.reprocess_before,
                     cursor_recorded_at=cursor_recorded_at,
                     cursor_id=cursor_id,
                 )

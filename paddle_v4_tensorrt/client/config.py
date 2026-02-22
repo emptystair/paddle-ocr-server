@@ -56,6 +56,9 @@ class ClientConfig:
     uploaded_after: Optional[str] = None  # YYYY-MM-DD format
     uploaded_before: Optional[str] = None  # YYYY-MM-DD format
 
+    # Reprocess filtering (ocr_results.updated_at)
+    reprocess_before: Optional[str] = None  # Only reprocess docs with OCR updated before this date
+
     @classmethod
     def from_env(cls) -> "ClientConfig":
         """Create config from environment variables."""
