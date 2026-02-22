@@ -74,6 +74,15 @@ To use PP-OCRv4 models instead of v5:
 docker compose -f docker-compose.v4.yml up -d
 ```
 
+### Cloud deployment (low memory)
+
+A threaded variant in `cloud/` trades ~12% throughput for ~85% memory savings (~3 GB vs ~21 GB). See [cloud/README.md](cloud/README.md) for details.
+
+```bash
+cd paddle_v4_tensorrt/cloud
+docker compose up -d
+```
+
 ### Run the client
 
 Process new (unprocessed) documents:
@@ -237,6 +246,12 @@ paddle_v4_tensorrt/
 │   ├── job_submitter.py       # HTTP client for server API
 │   ├── path_builder.py        # PDF path resolution and validation
 │   └── result_processor.py    # OCR result extraction and formatting
+├── cloud/
+│   ├── server.py              # Threaded server variant (low memory, cloud)
+│   ├── Dockerfile             # Cloud Dockerfile (copies cloud/server.py)
+│   ├── docker-compose.yml     # Cloud PP-OCRv5 config
+│   ├── docker-compose.v4.yml  # Cloud PP-OCRv4 config
+│   └── README.md              # Cloud deployment docs
 ├── compare_accuracy.py        # Benchmark: TRT vs Paddle V3
 └── compare_mobile_vs_server.py # Benchmark: v5 mobile vs server models
 ```
