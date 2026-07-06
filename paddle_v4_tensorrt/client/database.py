@@ -376,6 +376,7 @@ class DocumentOperations:
         uploaded_after: Optional[str] = None,
         uploaded_before: Optional[str] = None,
         reprocess_before: Optional[str] = None,
+        source_ids: Optional[List[str]] = None,
     ) -> int:
         """Get count of documents matching criteria.
 
@@ -384,7 +385,8 @@ class DocumentOperations:
         of rows. Falls back to exact count when filters are present.
         """
         has_filters = any([start_date, end_date, included_types,
-                          uploaded_after, uploaded_before, reprocess_before])
+                          uploaded_after, uploaded_before, reprocess_before,
+                          source_ids])
 
         # Fast path: approximate count from pg_class stats (~0.1s vs ~25s)
         if mode == "new" and not has_filters:
@@ -404,6 +406,8 @@ class DocumentOperations:
 
         if included_types:
             f.add("d.document_type = ANY(${idx}::text[])", included_types)
+        if source_ids:
+            f.add("d.source_document_id = ANY(${idx}::text[])", source_ids)
         if start_date:
             f.add("d.recorded_at >= ${idx}::timestamp", start_date)
         if end_date:
@@ -442,6 +446,7 @@ class DocumentOperations:
         uploaded_after: Optional[str] = None,
         uploaded_before: Optional[str] = None,
         reprocess_before: Optional[str] = None,
+        source_ids: Optional[List[str]] = None,
         cursor_recorded_at: Optional[Any] = None,
         cursor_id: Optional[Any] = None,
     ) -> Tuple[List[Dict], Optional[Any], Optional[Any]]:
@@ -474,6 +479,8 @@ class DocumentOperations:
 
         if included_types:
             f.add("d.document_type = ANY(${idx}::text[])", included_types)
+        if source_ids:
+            f.add("d.source_document_id = ANY(${idx}::text[])", source_ids)
         if start_date:
             f.add("d.recorded_at >= ${idx}::timestamp", start_date)
         if end_date:

@@ -199,11 +199,13 @@ class PaddleOCRClient:
                     uploaded_after=self.config.uploaded_after,
                     uploaded_before=self.config.uploaded_before,
                     reprocess_before=self.config.reprocess_before,
+                    source_ids=self.config.source_ids,
                 )
                 approx = "~" if self.config.mode == "new" and not any([
                     self.config.start_date, self.config.end_date,
                     self.config.included_doc_types,
                     self.config.uploaded_after, self.config.uploaded_before,
+                    self.config.source_ids,
                 ]) else ""
                 logger.info(f"Available documents matching criteria: {approx}{available:,}")
                 if target:
@@ -280,6 +282,7 @@ class PaddleOCRClient:
                     uploaded_after=self.config.uploaded_after,
                     uploaded_before=self.config.uploaded_before,
                     reprocess_before=self.config.reprocess_before,
+                    source_ids=self.config.source_ids,
                     cursor_recorded_at=cursor_recorded_at,
                     cursor_id=cursor_id,
                 )

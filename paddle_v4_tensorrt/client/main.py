@@ -99,6 +99,12 @@ Examples:
         default=None,
         help="Shorthand for --start-date YYYY-01-01 --end-date YYYY-12-31",
     )
+    parser.add_argument(
+        "--source-ids",
+        type=str,
+        default=None,
+        help="Comma-separated source_document_id values to process",
+    )
 
     # Upload date filtering (created_at)
     parser.add_argument(
@@ -204,6 +210,8 @@ def build_config(args: argparse.Namespace) -> ClientConfig:
         config.start_date = args.start_date
     if args.end_date:
         config.end_date = args.end_date
+    if args.source_ids:
+        config.source_ids = [s.strip() for s in args.source_ids.split(",") if s.strip()]
     if args.server:
         config.ocr_server_url = args.server
     if args.batch_size is not None:
@@ -292,6 +300,8 @@ async def main():
         logger.info(f"Start date:     {config.start_date}")
     if config.end_date:
         logger.info(f"End date:       {config.end_date}")
+    if config.source_ids:
+        logger.info(f"Source IDs:     {len(config.source_ids):,}")
     if config.uploaded_after:
         logger.info(f"Uploaded after: {config.uploaded_after}")
     if config.uploaded_before:

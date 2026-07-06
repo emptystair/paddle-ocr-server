@@ -44,6 +44,7 @@ class ClientConfig:
     start_date: Optional[str] = None  # YYYY-MM-DD format
     end_date: Optional[str] = None
     target_count: Optional[int] = None  # Stop after N documents
+    source_ids: Optional[List[str]] = None  # source_document_id allowlist
 
     # Document type filtering
     excluded_doc_types: list = field(default_factory=lambda: [
@@ -91,6 +92,7 @@ class ClientConfig:
             start_date=os.getenv("START_DATE"),
             end_date=os.getenv("END_DATE"),
             target_count=int(os.getenv("TARGET_COUNT")) if os.getenv("TARGET_COUNT") else None,
+            source_ids=[s.strip() for s in os.getenv("SOURCE_IDS", "").split(",") if s.strip()] or None,
             included_doc_types=os.getenv("INCLUDED_DOC_TYPES", "").split(",") if os.getenv("INCLUDED_DOC_TYPES") else None,
             uploaded_after=os.getenv("UPLOADED_AFTER"),
             uploaded_before=os.getenv("UPLOADED_BEFORE"),
